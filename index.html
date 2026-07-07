@@ -444,53 +444,119 @@ var StudentData = {};
 // ============================================================
 // ★★★ 批量操作函數（放在所有代碼最前面）★★★
 // ============================================================
-function applyBatch(status) {
-    var file = globalViewerFile;
-    if (!file) {
-        alert('請先打開功課檔案');
+// ============================================================
+// ★★★ 批量操作函数（使用自定义弹窗）★★★
+// ============================================================
+function applyBatchStatus(status) {
+    console.log('🚀 批量操作被點擊！狀態:', status);
+    
+    if (!currentViewerFile) {
+        showCustomAlert('⚠️ 請先打開功課檔案！');
         return;
     }
     
-    var cls = file.className;
-    var date = file.date;
-    var myClass = globalStudentData.class || 'F3A';
-    var myRoles = globalStudentData.roles || [];
+    var cls = currentViewerFile.className;
+    var date = currentViewerFile.date;
+    var myClass = studentData.class || 'F3A';
+    var myRoles = studentData.roles || [];
     
     if (cls !== myClass) {
-        alert('只能操作自己的班級');
+        showCustomAlert('⚠️ 只能操作自己的班級');
         return;
     }
     if (myRoles.length === 0) {
-        alert('請設定科長科目');
+        showCustomAlert('⚠️ 請設定科長科目');
         return;
     }
     
-    var labels = {
-        'submitted': '已交',
-        'late': '欠交',
-        'absent': '缺席',
-        'empty': '未交'
+    var statusMap = {
+        'submitted': '✅ 全班已交',
+        'late': '✗ 全班欠交',
+        'absent': 'A 全班缺席',
+        'empty': '◻ 全班未交'
     };
-    var label = labels[status] || status;
+    var label = statusMap[status] || status;
     
-    if (!confirm('確定全班設為「' + label + '」嗎？')) return;
-    
-    var dayData = globalHwData[cls] && globalHwData[cls][date];
-    if (!dayData) {
-        alert('無數據');
-        return;
-    }
-    
-    for (var i = 0; i < 33; i++) {
-        if (!dayData[i]) dayData[i] = {};
+    // ★★★ 使用自定义确认框 ★★★
+    showCustomConfirm('確定要將全班狀態設為「' + label + '」嗎？', function(confirmed) {
+        if (!confirmed) return;
+        
+        var dayData = hwData[cls] && hwData[cls][date];
+        if (!dayData) {
+            showCustomAlert('❌ 無此日資料');
+            return;
+        }
+        
+        var count = 0;
         myRoles.forEach(function(sub) {
-            dayData[i][sub] = status;
+            for (var i = 0; i < 33; i++) {
+                if (!dayData[i]) dayData[i] = {};
+                dayData[i][sub] = status;
+                count++;
+            }
         });
-    }
+        
+        localStorage.setItem('classworks_hw_data', JSON.stringify(hwData));
+        showCustomAlert('✅ 已將 ' + myRoles.join('、') + ' 全班設為「' + label + '」（共 ' + count + ' 筆）');
+        location.reload();
+    });
+}
+
+// ============================================================
+// ★★★ 自定义弹窗函数 ★★★
+// ============================================================
+
+// 自定义 Alert
+function showCustomAlert(message) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
     
-    localStorage.setItem('classworks_hw_data', JSON.stringify(globalHwData));
-    alert('✅ 已更新全班為「' + label + '」');
-    location.reload();
+    var box = document.createElement('div');
+    box.style.cssText = 'background:white;padding:30px 40px;border-radius:12px;max-width:400px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);font-family:sans-serif;';
+    box.innerHTML = `
+        <p style="font-size:18px;margin:0 0 20px 0;color:#333;">${message}</p>
+        <button onclick="this.closest('div[style]').remove()" style="background:#0f766e;color:white;border:none;padding:8px 30px;border-radius:999px;font-size:16px;cursor:pointer;">確定</button>
+    `;
+    
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
+
+// 自定义 Confirm
+function showCustomConfirm(message, callback) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    
+    var box = document.createElement('div');
+    box.style.cssText = 'background:white;padding:30px 40px;border-radius:12px;max-width:400px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);font-family:sans-serif;';
+    box.innerHTML = `
+        <p style="font-size:18px;margin:0 0 20px 0;color:#333;">${message}</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button id="customConfirmYes" style="background:#0f766e;color:white;border:none;padding:8px 30px;border-radius:999px;font-size:16px;cursor:pointer;">確定</button>
+            <button id="customConfirmNo" style="background:#ccc;color:#333;border:none;padding:8px 30px;border-radius:999px;font-size:16px;cursor:pointer;">取消</button>
+        </div>
+    `;
+    
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    
+    document.getElementById('customConfirmYes').onclick = function() {
+        overlay.remove();
+        callback(true);
+    };
+    
+    document.getElementById('customConfirmNo').onclick = function() {
+        overlay.remove();
+        callback(false);
+    };
+    
+    // 点击背景关闭
+    overlay.onclick = function(e) {
+        if (e.target === overlay) {
+            overlay.remove();
+            callback(false);
+        }
+    };
 }
 
 // ============================================================
