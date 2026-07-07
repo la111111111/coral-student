@@ -105,6 +105,10 @@ function applyBatchStatus(status) {
 
 // 暴露到 window
 window.applyBatch = applyBatchStatus;
+    // 在页面最外层声明全局变量
+var currentViewerFile = null;
+var hwData = {};
+var studentData = {};
 
 // ============================================================
 //  ★★★ IIFE 主程式 ★★★
