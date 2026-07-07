@@ -7,15 +7,213 @@
 <title>珊瑚小助 · 學生版</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* ... 样式保持不变 ... */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #f5f7fb; --surface: #ffffff; --surface2: #f8fafc; --text: #1e293b; --text2: #64748b;
+  --border: #e2e8f0; --accent: #0f766e; --accent-light: #e6f7f4;
+  --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
+}
+body { font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+button, input, select { font-family: inherit; }
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+.logo { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 1rem; font-weight: 900; padding: 8px 8px 18px; }
+.logo-icon { width: 36px; height: 36px; border-radius: 12px; background: var(--accent); color: white; display: grid; place-items: center; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--text); transition: 0.15s; user-select: none; }
+.nav-item:hover { background: var(--bg); }
+.nav-item.active { background: var(--accent-light); color: var(--accent); }
+.sidebar-footer { margin-top: auto; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: grid; gap: 8px; }
+.top-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.page-title h1 { font-size: 1rem; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+.tool-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--border); background: transparent; color: var(--text2); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-size: 0.72rem; font-weight: 750; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.15s; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn.primary:hover { background: #0b5e56; color: white; }
+.btn.success { background: var(--success); color: white; border-color: var(--success); }
+.btn.danger { background: var(--danger); color: white; border-color: var(--danger); }
+.btn.warning { background: var(--warning); color: white; border-color: var(--warning); }
+.btn.account { background: var(--surface2); border-color: var(--accent); color: var(--accent); font-weight: 850; }
+.btn.logout { border-color: var(--danger); color: var(--danger); font-size: 0.65rem; padding: 3px 10px; }
+.filters { display: grid; grid-template-columns: minmax(140px, 1fr) 110px 110px; gap: 8px; }
+.search-wrap { position: relative; }
+.search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text2); font-size: 0.75rem; }
+.input, .select { width: 100%; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 6px 12px; outline: none; font-size: 0.75rem; }
+.search-wrap .input { padding-left: 34px; }
+.content { flex: 1; padding: 12px; }
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.file-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 6px 8px; text-align: center; cursor: pointer; transition: 0.15s; user-select: none; }
+.file-card:hover { transform: translateY(-2px); box-shadow: 0 18px 45px rgba(15,23,42,0.14); }
+.file-card .file-icon-sm { margin: 0 auto 4px; font-size: 1.2rem; width: 32px; height: 32px; border-radius: 8px; background: var(--bg); display: grid; place-items: center; }
+.file-name { font-size: 0.7rem; font-weight: 850; word-break: break-word; line-height: 1.3; }
+.file-meta { color: var(--text2); font-size: 0.55rem; margin-top: 2px; }
+.class-selector { display: flex; gap: 3px; flex-wrap: wrap; padding: 2px 0; }
+.class-btn { border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 0.65rem; cursor: pointer; background: var(--surface); color: var(--text2); }
+.class-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.user-badge { display: flex; align-items: center; gap: 8px; background: var(--surface2); padding: 4px 12px 4px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.user-badge .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: grid; place-items: center; font-weight: 900; font-size: 0.75rem; }
+.user-badge .user-info { font-size: 0.7rem; line-height: 1.2; }
+.user-badge .user-info .name { font-weight: 900; color: var(--text); }
+.user-badge .user-info .detail { color: var(--text2); font-size: 0.6rem; }
+.status-bar { border-top: 1px solid var(--border); background: var(--surface); color: var(--text2); height: 26px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; font-size: 0.65rem; gap: 8px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; padding: 10px; }
+.modal-overlay.active { display: flex; }
+.dialog { background: var(--surface); color: var(--text); border-radius: 16px; width: 880px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+.dialog.wide { width: 1000px; }
+.dialog.small { width: 460px; }
+.dialog.medium { width: 550px; max-height: 80vh; }
+.dialog-header { padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dialog-title { font-weight: 900; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.85rem; }
+.viewer-content { flex: 1; min-height: 280px; overflow: auto; padding: 12px; line-height: 1.6; font-size: 0.85rem; }
+.dialog-footer { padding: 8px 14px; border-top: 1px solid var(--border); background: var(--bg); display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.form-body { padding: 14px; overflow-y: auto; }
+.form-grid { display: grid; grid-template-columns: 80px 1fr; gap: 6px 10px; align-items: center; font-size: 0.75rem; }
+.form-label { color: var(--text2); font-weight: 850; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 0.72rem; opacity: 0; pointer-events: none; transition: 0.2s; z-index: 12000; box-shadow: 0 18px 45px rgba(15,23,42,0.14); }
+.toast.show { opacity: 1; }
+.hw-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-bottom: 4px; }
+.hw-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.hw-table { width: 100%; min-width: 500px; border-collapse: collapse; font-size: 0.6rem; }
+.hw-table th, .hw-table td { border-bottom: 1px solid var(--border); padding: 2px 4px; text-align: center; }
+.hw-table th { background: var(--surface2); color: var(--text2); font-size: 0.55rem; }
+.hw-cell { border-radius: 4px; font-weight: 900; font-size: 0.75rem; padding: 1px 4px; }
+.hw-cell[data-status="submitted"] { color: var(--success); }
+.hw-cell[data-status="late"] { color: var(--warning); }
+.hw-cell[data-status="absent"] { color: var(--danger); }
+.hw-cell[data-status="empty"] { color: var(--text2); opacity: 0.4; }
 </style>
 </head>
 <body>
-<!-- ... HTML结构保持不变 ... -->
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon"><i class="fa-solid fa-user-graduate"></i></div>
+      <div>
+        <div>珊瑚小助</div>
+        <div style="font-size:0.6rem;color:var(--text2);font-weight:700;">👨‍🎓 學生版</div>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-item active"><i class="fa-solid fa-folder-tree"></i> 我的功課</div>
+    </div>
+    <div class="sidebar-footer"><button class="btn" id="themeToggle" style="width:100%;justify-content:center;"><i class="fa-solid fa-moon"></i> 主題</button></div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="top-row">
+        <div class="page-title">
+          <h1><i class="fa-solid fa-book-open" style="color:var(--accent);"></i> 功課追蹤</h1>
+        </div>
+        <div class="tool-group">
+          <button class="btn" id="notificationBtn"><i class="fa-solid fa-bell"></i></button>
+          <div class="user-badge" id="userBadge">
+            <div class="avatar" id="userAvatar">小</div>
+            <div class="user-info">
+              <div class="name" id="userDisplayName">陳小明</div>
+              <div class="detail" id="userDisplayDetail">F3A · 科長</div>
+            </div>
+            <button class="btn logout" id="btnLogout"><i class="fa-solid fa-sign-out-alt"></i></button>
+          </div>
+          <button class="btn account" id="btnAccount"><i class="fa-solid fa-gear"></i></button>
+          <button class="btn" id="btnRefresh"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="search-wrap"><i class="fa-solid fa-search"></i><input class="input" id="searchInput" placeholder="搜尋功課..."></div>
+        <select class="select" id="subjectFilter"><option value="all">全部科目</option></select>
+        <select class="select" id="typeFilter"><option value="all">全部類型</option></select>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:2px 0;">
+        <span style="font-size:0.65rem;color:var(--text2);font-weight:700;">班別：</span>
+        <div class="class-selector" id="classSelector"></div>
+        <button class="btn primary" id="btnAddHw" style="font-size:0.65rem;padding:2px 12px;margin-left:4px;"><i class="fa-solid fa-plus"></i> 新增功課</button>
+      </div>
+    </header>
+    <section class="content">
+      <div class="view active" id="viewFiles"><div class="file-grid" id="fileGrid"></div></div>
+    </section>
+    <footer class="status-bar"><span id="statusText">準備就緒</span><span>👨‍🎓 學生版</span></footer>
+  </main>
+</div>
+
+<!-- 通知對話框 -->
+<div class="modal-overlay" id="notificationModal">
+  <div class="dialog medium">
+    <div class="dialog-header">
+      <div class="dialog-title"><i class="fa-solid fa-bell" style="color:var(--warning);"></i> 通知</div>
+      <button class="btn" id="notificationClose">✕</button>
+    </div>
+    <div class="form-body"><p style="color:var(--text2);">暫無通知</p></div>
+    <div class="dialog-footer"><button class="btn" id="notificationModalClose">關閉</button></div>
+  </div>
+</div>
+
+<!-- 檔案檢視器 -->
+<div class="modal-overlay" id="viewerModal">
+  <div class="dialog wide">
+    <div class="dialog-header">
+      <div class="dialog-title" id="viewerTitle">📋 功課詳情</div>
+      <button class="btn" id="viewerClose">✕</button>
+    </div>
+    <div class="viewer-content" id="viewerContent"></div>
+    <div class="dialog-footer">
+      <button class="btn" id="viewerCancel">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增功課對話框 -->
+<div class="modal-overlay" id="addHwModal">
+  <div class="dialog small">
+    <div class="dialog-header">
+      <div class="dialog-title"><i class="fa-solid fa-file-circle-plus"></i> 新增功課</div>
+      <button class="btn" id="addHwClose">✕</button>
+    </div>
+    <div class="form-body">
+      <div class="form-grid">
+        <div class="form-label">日期</div>
+        <input class="input" id="addHwDate" type="date">
+        <div class="form-label">科目</div>
+        <select class="select" id="addHwSubject">
+          <option value="中文">中文</option><option value="英文">英文</option>
+          <option value="數學">數學</option><option value="科學">科學</option>
+          <option value="中史">中史</option><option value="歷史">歷史</option>
+          <option value="公經社">公經社</option><option value="其他">其他</option>
+        </select>
+      </div>
+      <div style="margin-top:10px;padding:6px 12px;background:var(--accent-light);border-radius:999px;text-align:center;font-size:0.7rem;color:var(--text2);">
+        📌 班級：<span id="addHwClassDisplay" style="font-weight:900;color:var(--accent);">F3A</span>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" id="addHwCancel">取消</button>
+      <button class="btn primary" id="addHwConfirm">建立</button>
+    </div>
+  </div>
+</div>
+
+<!-- 確認對話框 -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="dialog small">
+    <div class="dialog-header"><div class="dialog-title">確認操作</div></div>
+    <div class="form-body">
+      <div class="inline-confirm"><p id="confirmMsg"></p>
+        <div style="display:flex;gap:6px;justify-content:center;">
+          <button class="btn danger" id="confirmYes">確定</button>
+          <button class="btn" id="confirmNo">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 // ============================================================
-// ★★★ 全局变量（删掉所有 GLOBAL_ 前缀）★★★
+// ★★★ 全局变量 ★★★
 // ============================================================
 var currentViewerFile = null;
 var hwData = {};
@@ -76,7 +274,7 @@ function applyBatchStatus(status) {
 }
 
 // ============================================================
-// ★★★ 主程式（简化版，确保能运行）★★★
+// ★★★ 主程式 ★★★
 // ============================================================
 (function() {
     'use strict';
@@ -106,7 +304,6 @@ function applyBatchStatus(status) {
     } catch(e) {}
     
     if (Object.keys(hwData).length === 0) {
-        // 创建默认数据
         var allClasses = [];
         for (var f = 1; f <= 6; f++) {
             for (var ci = 0; ci < 4; ci++) {
@@ -130,66 +327,75 @@ function applyBatchStatus(status) {
     }
     
     console.log('✅ 數據載入完成');
-    console.log('👤 學生:', studentData);
-    console.log('📚 功課數據:', Object.keys(hwData));
     
     // 更新用户界面
-    document.getElementById('userDisplayName').textContent = studentData.name || '學生';
-    document.getElementById('userAvatar').textContent = (studentData.name || '學').charAt(0);
-    var roleText = (studentData.roles && studentData.roles.length > 0) ? 
-        '科長 (' + studentData.roles.join('、') + ')' : '學生';
-    document.getElementById('userDisplayDetail').textContent = (studentData.class || 'F3A') + ' · ' + roleText;
+    var nameEl = document.getElementById('userDisplayName');
+    if (nameEl) nameEl.textContent = studentData.name || '學生';
+    
+    var avatarEl = document.getElementById('userAvatar');
+    if (avatarEl) avatarEl.textContent = (studentData.name || '學').charAt(0);
+    
+    var detailEl = document.getElementById('userDisplayDetail');
+    if (detailEl) {
+        var roleText = (studentData.roles && studentData.roles.length > 0) ? 
+            '科長 (' + studentData.roles.join('、') + ')' : '學生';
+        detailEl.textContent = (studentData.class || 'F3A') + ' · ' + roleText;
+    }
     
     // 生成文件列表
     var cls = studentData.class || 'F3A';
     var dates = Object.keys(hwData[cls] || {}).sort();
     var grid = document.getElementById('fileGrid');
-    grid.innerHTML = '';
-    
-    if (dates.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text2);">目前沒有功課</div>';
-    } else {
-        dates.forEach(function(date) {
-            var card = document.createElement('div');
-            card.className = 'file-card';
-            card.innerHTML = `
-                <div class="file-icon-sm"><i class="fa-solid fa-clipboard-check" style="color:#0f766e;"></i></div>
-                <div class="file-name">${cls}_功課_${date}.hw</div>
-                <div class="file-meta">功課追蹤 · ${date}</div>
-            `;
-            card.onclick = function() {
-                // 打开功课详情
-                currentViewerFile = { className: cls, date: date, name: cls + '_功課_' + date + '.hw', isHw: true };
-                openViewer(currentViewerFile);
-            };
-            grid.appendChild(card);
-        });
+    if (grid) {
+        grid.innerHTML = '';
+        if (dates.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text2);">目前沒有功課</div>';
+        } else {
+            dates.forEach(function(date) {
+                var card = document.createElement('div');
+                card.className = 'file-card';
+                card.innerHTML = `
+                    <div class="file-icon-sm"><i class="fa-solid fa-clipboard-check" style="color:#0f766e;"></i></div>
+                    <div class="file-name">${cls}_功課_${date}.hw</div>
+                    <div class="file-meta">功課追蹤 · ${date}</div>
+                `;
+                card.onclick = function() {
+                    currentViewerFile = { className: cls, date: date, name: cls + '_功課_' + date + '.hw', isHw: true };
+                    openViewer(currentViewerFile);
+                };
+                grid.appendChild(card);
+            });
+        }
     }
     
     // 班级选择器
     var selector = document.getElementById('classSelector');
-    selector.innerHTML = '';
-    var allClasses2 = [];
-    for (var f2 = 1; f2 <= 6; f2++) {
-        for (var ci2 = 0; ci2 < 4; ci2++) {
-            var c2 = ['A', 'B', 'C', 'D'][ci2];
-            allClasses2.push('F' + f2 + c2);
+    if (selector) {
+        selector.innerHTML = '';
+        var allClasses2 = [];
+        for (var f2 = 1; f2 <= 6; f2++) {
+            for (var ci2 = 0; ci2 < 4; ci2++) {
+                var c2 = ['A', 'B', 'C', 'D'][ci2];
+                allClasses2.push('F' + f2 + c2);
+            }
         }
+        allClasses2.forEach(function(c) {
+            var btn = document.createElement('span');
+            btn.className = 'class-btn' + (c === cls ? ' active' : '');
+            btn.textContent = c + (c === cls ? ' ⭐' : '');
+            btn.onclick = function() {
+                alert('切換到 ' + c);
+            };
+            selector.appendChild(btn);
+        });
     }
-    allClasses2.forEach(function(c) {
-        var btn = document.createElement('span');
-        btn.className = 'class-btn' + (c === cls ? ' active' : '');
-        btn.textContent = c + (c === cls ? ' ⭐' : '');
-        btn.onclick = function() {
-            alert('切換到 ' + c);
-        };
-        selector.appendChild(btn);
-    });
     
     // 打开查看器
     window.openViewer = function(file) {
         currentViewerFile = file;
         var content = document.getElementById('viewerContent');
+        if (!content) return;
+        
         var cls2 = file.className;
         var date2 = file.date;
         var dayData = hwData[cls2] && hwData[cls2][date2];
@@ -219,67 +425,112 @@ function applyBatchStatus(status) {
             content.innerHTML = html;
         }
         
-        document.getElementById('viewerModal').classList.add('active');
+        var modal = document.getElementById('viewerModal');
+        if (modal) modal.classList.add('active');
     };
     
     // 关闭查看器
-    document.getElementById('viewerClose').onclick = function() {
-        document.getElementById('viewerModal').classList.remove('active');
+    var closeViewer = function() {
+        var modal = document.getElementById('viewerModal');
+        if (modal) modal.classList.remove('active');
     };
-    document.getElementById('viewerCancel').onclick = function() {
-        document.getElementById('viewerModal').classList.remove('active');
-    };
+    
+    var viewerClose = document.getElementById('viewerClose');
+    if (viewerClose) viewerClose.onclick = closeViewer;
+    
+    var viewerCancel = document.getElementById('viewerCancel');
+    if (viewerCancel) viewerCancel.onclick = closeViewer;
     
     // 新增功课
-    document.getElementById('btnAddHw').onclick = function() {
-        document.getElementById('addHwDate').value = new Date().toISOString().slice(0, 10);
-        document.getElementById('addHwClassDisplay').textContent = studentData.class || 'F3A';
-        document.getElementById('addHwModal').classList.add('active');
+    var addBtn = document.getElementById('btnAddHw');
+    if (addBtn) {
+        addBtn.onclick = function() {
+            var dateInput = document.getElementById('addHwDate');
+            if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+            
+            var display = document.getElementById('addHwClassDisplay');
+            if (display) display.textContent = studentData.class || 'F3A';
+            
+            var modal = document.getElementById('addHwModal');
+            if (modal) modal.classList.add('active');
+        };
+    }
+    
+    var confirmAdd = document.getElementById('addHwConfirm');
+    if (confirmAdd) {
+        confirmAdd.onclick = function() {
+            var date = document.getElementById('addHwDate').value;
+            var subject = document.getElementById('addHwSubject').value;
+            var cls3 = studentData.class || 'F3A';
+            
+            if (!date) { alert('請選擇日期'); return; }
+            
+            if (!hwData[cls3]) hwData[cls3] = {};
+            if (!hwData[cls3][date]) hwData[cls3][date] = {};
+            
+            for (var i4 = 0; i4 < 33; i4++) {
+                if (!hwData[cls3][date][i4]) hwData[cls3][date][i4] = {};
+                hwData[cls3][date][i4][subject] = 'empty';
+            }
+            
+            localStorage.setItem('classworks_hw_data', JSON.stringify(hwData));
+            
+            var modal = document.getElementById('addHwModal');
+            if (modal) modal.classList.remove('active');
+            
+            alert('✅ 已新增 ' + cls3 + ' ' + date + ' 的「' + subject + '」');
+            location.reload();
+        };
+    }
+    
+    var closeAdd = function() {
+        var modal = document.getElementById('addHwModal');
+        if (modal) modal.classList.remove('active');
     };
     
-    document.getElementById('addHwConfirm').onclick = function() {
-        var date = document.getElementById('addHwDate').value;
-        var subject = document.getElementById('addHwSubject').value;
-        var cls3 = studentData.class || 'F3A';
-        
-        if (!date) { alert('請選擇日期'); return; }
-        
-        if (!hwData[cls3]) hwData[cls3] = {};
-        if (!hwData[cls3][date]) hwData[cls3][date] = {};
-        
-        for (var i4 = 0; i4 < 33; i4++) {
-            if (!hwData[cls3][date][i4]) hwData[cls3][date][i4] = {};
-            hwData[cls3][date][i4][subject] = 'empty';
-        }
-        
-        localStorage.setItem('classworks_hw_data', JSON.stringify(hwData));
-        document.getElementById('addHwModal').classList.remove('active');
-        alert('✅ 已新增 ' + cls3 + ' ' + date + ' 的「' + subject + '」');
-        location.reload();
-    };
+    var addClose = document.getElementById('addHwClose');
+    if (addClose) addClose.onclick = closeAdd;
     
-    document.getElementById('addHwClose').onclick = function() {
-        document.getElementById('addHwModal').classList.remove('active');
-    };
-    document.getElementById('addHwCancel').onclick = function() {
-        document.getElementById('addHwModal').classList.remove('active');
-    };
+    var addCancel = document.getElementById('addHwCancel');
+    if (addCancel) addCancel.onclick = closeAdd;
     
     // 刷新按钮
-    document.getElementById('btnRefresh').onclick = function() {
-        location.reload();
-    };
+    var refreshBtn = document.getElementById('btnRefresh');
+    if (refreshBtn) refreshBtn.onclick = function() { location.reload(); };
     
     // 通知按钮
-    document.getElementById('notificationBtn').onclick = function() {
-        document.getElementById('notificationModal').classList.add('active');
+    var notifBtn = document.getElementById('notificationBtn');
+    if (notifBtn) {
+        notifBtn.onclick = function() {
+            var modal = document.getElementById('notificationModal');
+            if (modal) modal.classList.add('active');
+        };
+    }
+    
+    var closeNotif = function() {
+        var modal = document.getElementById('notificationModal');
+        if (modal) modal.classList.remove('active');
     };
-    document.getElementById('notificationClose').onclick = function() {
-        document.getElementById('notificationModal').classList.remove('active');
-    };
-    document.getElementById('notificationModalClose').onclick = function() {
-        document.getElementById('notificationModal').classList.remove('active');
-    };
+    
+    var notifClose = document.getElementById('notificationClose');
+    if (notifClose) notifClose.onclick = closeNotif;
+    
+    var notifModalClose = document.getElementById('notificationModalClose');
+    if (notifModalClose) notifModalClose.onclick = closeNotif;
+    
+    // 主题切换
+    var themeBtn = document.getElementById('themeToggle');
+    var darkMode = false;
+    if (themeBtn) {
+        themeBtn.onclick = function() {
+            darkMode = !darkMode;
+            document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+        };
+    }
+    
+    // 状态栏
+    var statusEl = document.getElementById('statusText');
+    if (statusEl) statusEl.textContent = dates.length + ' 個功課';
     
     console.log('✅ 珊瑚小助啟動完成！');
 })();
