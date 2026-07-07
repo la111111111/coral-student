@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="theme-color" content="#0f766e">
+<title>珊瑚小助 · 學生版</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ... (保持所有样式不变) ... */
+</style>
+</head>
+<body>
+<!-- ... (保持所有HTML结构不变) ... -->
+
+<script>
+// ============================================================
+//  ★★★ 全局變量與函數（在IIFE外部）★★★
+// ============================================================
+
+// 存儲當前打開的功課檔案
+var GLOBAL_currentViewerFile = null;
+var GLOBAL_hwData = {};
+var GLOBAL_studentData = {};
+
+// 批量操作函數 - 完全在全局作用域
+function applyBatchStatus(status) {
+    console.log('🚀 批量操作被點擊！狀態:', status);
+    console.log('📁 當前檔案:', GLOBAL_currentViewerFile);
+    
+    if (!GLOBAL_currentViewerFile) {
+        alert('⚠️ 沒有打開的功課檔案，請先點擊一個功課檔案');
+        return;
+    }
+    
+    const cls = GLOBAL_currentViewerFile.className;
+    const date = GLOBAL_currentViewerFile.date;
+    const myClass = GLOBAL_studentData.class || 'F3A';
+    const myRoles = GLOBAL_studentData.roles || [];
+    const canEdit = (cls === myClass) && myRoles.length > 0;
+    
+    console.log('📋 班級:', cls, '日期:', date);
+    console.log('👤 用戶班級:', myClass, '科長科目:', myRoles);
+    console.log('✏️ 可編輯:', canEdit);
+    
+    if (!canEdit) { 
+        alert('⚠️ 只有科長可以批量操作，請在帳號設置中設定科長職位'); 
+        return; 
+    }
+
+    const statusMap = {
+        'submitted': '✅ 全班已交',
+        'late': '✗ 全班欠交',
+        'absent': 'A 全班缺席',
+        'empty': '◻ 全班未交'
+    };
+    const label = statusMap[status] || status;
+    
+    if (!confirm(`確定要將全班狀態設為「${label}」嗎？此操作會覆蓋所有學生該科目的狀態。`)) {
+        return;
+    }
+
+    const dayData = GLOBAL_hwData[cls][date];
+    if (!dayData) { 
+        alert('❌ 無此日資料'); 
+        return; 
+    }
+
+    const roles = myRoles;
+    if (roles.length === 0) { 
+        alert('⚠️ 你沒有設定科長科目'); 
+        return; 
+    }
+
+    let count = 0;
+    roles.forEach(sub => {
+        for (let i = 0; i < 33; i++) {
+            if (!dayData[i]) dayData[i] = {};
+            dayData[i][sub] = status;
+            count++;
+        }
+    });
+
+    // 保存數據
+    try {
+        localStorage.setItem('classworks_hw_data', JSON.stringify(GLOBAL_hwData));
+    } catch(e) { console.warn('Save failed:', e); }
+    
+    // 標記已修改
+    GLOBAL_hasChanges = true;
+    GLOBAL_viewerHasChanges = true;
+    
+    // 重新渲染
+    const container = document.getElementById("viewerContent");
+    if (container && GLOBAL_currentViewerFile) {
+        renderHwViewer(GLOBAL_currentViewerFile, container);
+    }
+    
+    alert(`✅ 已將 ${roles.join('、')} 全班設為「${label}」（共 ${count} 筆）`);
+    document.getElementById("viewerSaveClose").style.display = 'inline-flex';
+    document.getElementById("viewerSaveTop").style.display = 'inline-flex';
+    
+    console.log('✅ 批量操作完成！');
+}
+
+// 暴露到 window
+window.applyBatch = applyBatchStatus;
+
+// ============================================================
+//  ★★★ IIFE 主程式 ★★★
+// ============================================================
+(function() {
+  'use strict';
+
+  // ============================================================
+  //  Apps Script 網址
+  // ============================================================
+  const API_URL = 'https://script.google.com/macros/s/AKfycby2M_xlvoOGZjUpOkUbEUX8nIp7IOLVYaLwS2dRjiNep4V96nwTZ60gfT2fTmtkqceY/exec';
+
+  // ============================================================
+  //  核心數據
+  // ============================================================
+  const STORAGE_KEY = "classworks_student_data";
+  const HW_STORAGE_KEY = "classworks_hw_data";
+  const hwSubjects = ["中文", "英文", "數學", "科學", "中史", "歷史", "公經社", "其他"];
+  const allClasses = [];
+  for (let f = 1; f <= 6; f++) {
+    for (let c of ['A', 'B', 'C', 'D']) allClasses.push('F' + f + c);
+  }
+
+  const defaultStudent = { name: '陳小明', class: 'F3A', roles: ['中文', '數學'], teacher: '陳' };
+
+  // ============================================================
+  //  狀態變數
+  // ============================================================
+  let studentData = { ...defaultStudent };
+  let hwData = {};
+  let currentDisplayClass = '';
+  let currentViewerFile = null;
+  let hasChanges = false;
+  let popupCallback = null;
+  let popupStudentIdx = null;
+  let popupSubject = null;
+  let viewerHasChanges = false;
+  let isEditMode = false;
+  let darkMode = false;
+  let isLoading = false;
+  let renderTimer = null;
+  let confirmCallback = null;
+
+  // ============================================================
+  //  同步到全局（讓 applyBatchStatus 可以訪問）
+  // ============================================================
+  GLOBAL_currentViewerFile = currentViewerFile;
+  GLOBAL_hwData = hwData;
+  GLOBAL_studentData = studentData;
+  GLOBAL_hasChanges = hasChanges;
+  GLOBAL_viewerHasChanges = viewerHasChanges;
+
+  // ============================================================
+  //  初始化數據
+  // ============================================================
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { const p = JSON.parse(saved); if (p.name && p.class) studentData = p; }
+  } catch(e) {}
+  try {
+    const savedHw = localStorage.getItem(HW_STORAGE_KEY);
+    if (savedHw) { const p = JSON.parse(savedHw); if (typeof p === 'object') hwData = p; }
+  } catch(e) {}
+  if (Object.keys(hwData).length === 0) hwData = createDefaultHwData();
+
+  currentDisplayClass = studentData.class || 'F3A';
+  
+  // 更新全局引用
+  GLOBAL_studentData = studentData;
+  GLOBAL_hwData = hwData;
+
+  // ============================================================
+  //  數據保存
+  // ============================================================
+  function saveStudentData() { 
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(studentData)); } catch(e) { console.warn('Save student data failed:', e); }
+  }
+  
+  function saveHwData() { 
+    try { localStorage.setItem(HW_STORAGE_KEY, JSON.stringify(hwData)); } catch(e) { console.warn('Save homework data failed:', e); }
+  }
+
+  // ============================================================
+  //  工具函數
+  // ============================================================
+  function createDefaultHwData() {
+    const hwData = {};
+    allClasses.forEach(cls => {
+      hwData[cls] = {};
+      const today = new Date().toISOString().slice(0, 10);
+      hwData[cls][today] = {};
+      for (let i = 0; i < 33; i++) {
+        hwData[cls][today][i] = {};
+        hwSubjects.forEach(sub => {
+          const statuses = ['submitted', 'submitted', 'submitted', 'late', 'empty', 'empty'];
+          hwData[cls][today][i][sub] = statuses[Math.floor(Math.random() * statuses.length)];
+        });
+      }
+    });
+    return hwData;
+  }
+
+  function getStudentClass() { return studentData.class || 'F3A'; }
+  function getStudentName() { return studentData.name || '學生'; }
+  function getStudentRoles() { return studentData.roles || []; }
+  function getStudentTeacher() { return studentData.teacher || ''; }
+  function isClassLeader() { const r = getStudentRoles(); return r && r.length > 0; }
+  function getDisplayClass() { return currentDisplayClass || getStudentClass(); }
+  function getToday() { return new Date().toISOString().slice(0, 10); }
+
+  function esc(s) { return String(s || "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m])); }
+  
+  function toast(m, d) { 
+    d = d || 1500; 
+    const t = document.getElementById("toast"); 
+    t.textContent = m; 
+    t.classList.add("show"); 
+    clearTimeout(toast._t); 
+    toast._t = setTimeout(() => t.classList.remove("show"), d); 
+  }
+
+  // ============================================================
+  //  渲染 HW 檢視器（使用 onclick 直接綁定）
+  // ============================================================
+  function renderHwViewer(file, container) {
+    const cls = file.className;
+    const date = file.date;
+    const studentName = getStudentName();
+    const teacher = getStudentTeacher();
+    const myRoles = getStudentRoles();
+    const myClass = getStudentClass();
+    const canEdit = (cls === myClass) && isClassLeader();
+
+    if (!hwData[cls] || !hwData[cls][date]) {
+      container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text2);">該日無功課記錄</div>';
+      return;
+    }
+
+    const dayData = hwData[cls][date];
+    const students = [];
+    for (let i = 1; i <= 33; i++) students.push('學生' + String(i).padStart(2, '0'));
+    const subjects = hwSubjects;
+
+    let studentIdx = 0;
+    for (let i = 0; i < students.length; i++) {
+      if (students[i] === studentName || (studentName === '陳小明' && i === 0)) {
+        studentIdx = i;
+        break;
+      }
+    }
+
+    let total = 0, submitted = 0, late = 0, absent = 0;
+    const mySubs = myRoles.length > 0 ? myRoles : hwSubjects;
+    mySubs.forEach(sub => {
+      if (dayData[studentIdx] && dayData[studentIdx][sub]) {
+        total++;
+        const st = dayData[studentIdx][sub];
+        if (st === 'submitted') submitted++;
+        else if (st === 'late') late++;
+        else if (st === 'absent') absent++;
+      }
+    });
+    const rate = total ? (submitted / total * 100).toFixed(1) : "0";
+
+    const columnEditable = {};
+    subjects.forEach(sub => {
+      columnEditable[sub] = canEdit && myRoles.includes(sub);
+    });
+
+    let html = `
+      <div class="hw-top">
+        <div>
+          <span style="font-weight:900;font-size:0.85rem;">📋 ${esc(cls)}</span>
+          <span style="font-size:0.65rem;color:var(--text2);margin-left:8px;">📅 ${esc(date)} · 👤 ${esc(studentName)}</span>
+          ${teacher ? '<span style="font-size:0.6rem;color:var(--text2);margin-left:4px;">👨‍🏫 ' + esc(teacher) + '老師</span>' : ''}
+          ${file.submitted ? '<span style="margin-left:8px;font-size:0.6rem;color:var(--success);">✅ 已提交</span>' : ''}
+          ${canEdit ? '<span style="margin-left:8px;font-size:0.6rem;color:var(--edit-green-border);background:var(--edit-green);padding:1px 10px;border-radius:999px;">🟢 綠色整欄 = 你可編輯</span>' : '<span style="margin-left:8px;font-size:0.6rem;color:var(--text2);">🔒 唯讀</span>'}
+        </div>
+        <span style="font-size:0.7rem;color:var(--text2);">完成率 <b>${rate}%</b></span>
+      </div>
+      <div class="hw-panel" style="background:var(--accent-light);border-color:var(--accent);padding:4px 10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:0.7rem;">
+          <span style="font-weight:900;">我的進度</span>
+          <span style="color:var(--success);">✅ ${submitted}</span>
+          <span style="color:var(--warning);">✗ ${late}</span>
+          <span style="color:var(--danger);">A ${absent}</span>
+          ${myRoles.length > 0 ? '<span style="background:var(--bg);padding:1px 8px;border-radius:999px;font-size:0.6rem;">📌 科長：' + myRoles.join('、') + '</span>' : ''}
+        </div>
+      </div>
+    `;
+
+    // ★★★ 批量操作按鈕 - 使用 onclick 直接調用全局函數 ★★★
+    if (canEdit) {
+      html += `
+        <div class="hw-panel" style="padding:4px 10px; background: var(--surface2);">
+          <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:0.65rem;">
+            <span style="font-weight:900; margin-right:4px;">⚡ 全班操作：</span>
+            <button class="btn success" onclick="applyBatchStatus('submitted')" style="font-size:0.6rem; padding:2px 10px;">✅ 全班已交</button>
+            <button class="btn warning" onclick="applyBatchStatus('late')" style="font-size:0.6rem; padding:2px 10px;">✗ 全班欠交</button>
+            <button class="btn danger" onclick="applyBatchStatus('absent')" style="font-size:0.6rem; padding:2px 10px;">A 全班缺席</button>
+            <button class="btn" onclick="applyBatchStatus('empty')" style="font-size:0.6rem; padding:2px 10px;">◻ 全班未交</button>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="hw-panel" style="padding:4px 10px;">
+        <div style="font-size:0.6rem;font-weight:850;color:var(--text2);margin-bottom:2px;">👥 全班</div>
+        <div class="hw-table-wrap"><table class="hw-table">
+    `;
+
+    html += `<colgroup><col>`;
+    subjects.forEach(sub => {
+      html += `<col class="${columnEditable[sub] ? 'green-column' : ''}">`;
+    });
+    html += `</colgroup>`;
+
+    html += `<thead><tr><th class="hw-name">姓名</th>`;
+    subjects.forEach(sub => {
+      const isEditable = columnEditable[sub];
+      html += `<th class="${isEditable ? 'col-header-green' : ''}" style="${isEditable ? '' : 'opacity:0.5;'}">${esc(sub)}${isEditable ? ' 🟢' : ''}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    students.forEach((name, idx) => {
+      const isMe = idx === studentIdx;
+      const isReadonly = !canEdit;
+      html += `<tr${isMe ? ' class="my-row"' : ''}${isReadonly ? ' class="readonly-row"' : ''}><td class="hw-name">${isMe ? '⭐ ' : ''}${esc(name)}</td>`;
+      subjects.forEach(sub => {
+        const st = dayData[idx] && dayData[idx][sub] ? dayData[idx][sub] : 'empty';
+        const emoji = st === 'submitted' ? '✅' : st === 'late' ? '✗' : st === 'absent' ? 'A' : '◻';
+        const isEditable = columnEditable[sub];
+        const clickHandler = isEditable ? `onclick="window.handleCellClick(event, ${idx}, '${esc(sub)}')"` : '';
+        html += `<td><span class="hw-cell ${isEditable ? 'clickable' : 'not-clickable'}" 
+          data-status="${st}" data-idx="${idx}" data-sub="${esc(sub)}" 
+          ${clickHandler}
+          style="${isEditable ? 'cursor:pointer;' : 'cursor:not-allowed;'}">${emoji}</span></td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
+    
+    // 更新全局引用
+    GLOBAL_currentViewerFile = currentViewerFile;
+    GLOBAL_hwData = hwData;
+    GLOBAL_studentData = studentData;
+  }
+
+  // ============================================================
+  //  檢視器
+  // ============================================================
+  function openViewer(file) {
+    currentViewerFile = file;
+    GLOBAL_currentViewerFile = file; // 同步到全局
+    hasChanges = false;
+    viewerHasChanges = false;
+    isEditMode = false;
+    const dlg = document.getElementById("viewerDialog");
+    const content = document.getElementById("viewerContent");
+    const status = document.getElementById("viewerStatus");
+    const submitBtn = document.getElementById("viewerSubmit");
+    const saveBtn = document.getElementById("viewerSaveClose");
+    const saveTop = document.getElementById("viewerSaveTop");
+    const editHint = document.getElementById("editHint");
+    const readonlyHint = document.getElementById("readonlyHint");
+
+    dlg.classList.remove("wide");
+    content.className = "viewer-content";
+
+    const myClass = getStudentClass();
+    const isMyClass = file.className === myClass;
+    const canEdit = isMyClass && isClassLeader();
+
+    document.getElementById("viewerTitle").innerHTML = '<i class="fa-solid ' + file.icon + '" style="color:' + file.color + ';"></i><span>' + esc(file.name) + '</span>';
+    saveTop.style.display = 'none';
+    saveBtn.style.display = 'none';
+
+    if (file.submitted || !canEdit) {
+      submitBtn.style.display = 'none';
+    } else {
+      submitBtn.style.display = 'inline-flex';
+    }
+
+    if (canEdit) {
+      editHint.style.display = 'inline-block';
+      readonlyHint.style.display = 'none';
+      status.textContent = "📝 編輯模式 (你的班級)";
+    } else {
+      editHint.style.display = 'none';
+      readonlyHint.style.display = 'inline-block';
+      status.textContent = "🔒 唯讀模式" + (isMyClass ? '' : ' (' + file.className + ')');
+    }
+
+    if (file.isHw) {
+      dlg.classList.add("wide");
+      content.className = "viewer-content hw-app";
+      renderHwViewer(file, content);
+    } else {
+      content.textContent = "暫無內容";
+    }
+
+    saveBtn.onclick = function() {
+      if (hasChanges) {
+        saveHwData();
+        hasChanges = false;
+        saveBtn.style.display = 'none';
+        saveTop.style.display = 'none';
+        fileList = generateHwFiles();
+        safeRender();
+        toast("✅ 功課已儲存");
+      }
+    };
+
+    document.getElementById("viewerModal").classList.add("active");
+  }
+
+  // ============================================================
+  //  其餘函數（保持不變）
+  // ============================================================
+  // ... (其餘函數與之前相同) ...
+
+  // ============================================================
+  //  初始化
+  // ============================================================
+  const initClass = getDisplayClass();
+  if (!hwData[initClass]) {
+    hwData[initClass] = {};
+    const today = getToday();
+    hwData[initClass][today] = {};
+    for (let i = 0; i < 33; i++) {
+      hwData[initClass][today][i] = {};
+      hwSubjects.forEach(sub => { hwData[initClass][today][i][sub] = 'empty'; });
+    }
+    saveHwData();
+  }
+
+  fileList = generateHwFiles();
+  loadNotifications();
+  bindEvents();
+  safeRender();
+
+  setInterval(loadNotifications, 30000);
+
+  toast("📚 學生版已啟動 · 批量按鈕已修復！");
+})();
+</script>
+</body>
+</html>
