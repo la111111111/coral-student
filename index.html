@@ -19,88 +19,61 @@
 // ============================================================
 
 // 存儲當前打開的功課檔案
-var currentViewerFile = null;
-var hwData = {};
+var globalViewerFile = null;
+var globalHwData = {};
+var globalStudentData = {};
+
 
 // 批量操作函數 - 完全在全局作用域
-function applyBatchStatus(status) {
-    console.log('🚀 批量操作被點擊！狀態:', status);
-    console.log('📁 當前檔案:', GLOBAL_currentViewerFile);
-    
-    if (!GLOBAL_currentViewerFile) {
-        alert('⚠️ 沒有打開的功課檔案，請先點擊一個功課檔案');
+function applyBatch(status) {
+    var file = globalViewerFile;
+    if (!file) {
+        alert('請先打開功課檔案');
         return;
     }
     
-    const cls = GLOBAL_currentViewerFile.className;
-    const date = GLOBAL_currentViewerFile.date;
-    const myClass = GLOBAL_studentData.class || 'F3A';
-    const myRoles = GLOBAL_studentData.roles || [];
-    const canEdit = (cls === myClass) && myRoles.length > 0;
+    var cls = file.className;
+    var date = file.date;
+    var myClass = globalStudentData.class || 'F3A';
+    var myRoles = globalStudentData.roles || [];
     
-    console.log('📋 班級:', cls, '日期:', date);
-    console.log('👤 用戶班級:', myClass, '科長科目:', myRoles);
-    console.log('✏️ 可編輯:', canEdit);
-    
-    if (!canEdit) { 
-        alert('⚠️ 只有科長可以批量操作，請在帳號設置中設定科長職位'); 
-        return; 
+    if (cls !== myClass) {
+        alert('只能操作自己的班級');
+        return;
     }
-
-    const statusMap = {
-        'submitted': '✅ 全班已交',
-        'late': '✗ 全班欠交',
-        'absent': 'A 全班缺席',
-        'empty': '◻ 全班未交'
+    if (myRoles.length === 0) {
+        alert('請設定科長科目');
+        return;
+    }
+    
+    var labels = {
+        'submitted': '已交',
+        'late': '欠交',
+        'absent': '缺席',
+        'empty': '未交'
     };
-    const label = statusMap[status] || status;
+    var label = labels[status] || status;
     
-    if (!confirm(`確定要將全班狀態設為「${label}」嗎？此操作會覆蓋所有學生該科目的狀態。`)) {
+    if (!confirm('確定全班設為「' + label + '」嗎？')) return;
+    
+    var dayData = globalHwData[cls] && globalHwData[cls][date];
+    if (!dayData) {
+        alert('無數據');
         return;
     }
-
-    const dayData = GLOBAL_hwData[cls][date];
-    if (!dayData) { 
-        alert('❌ 無此日資料'); 
-        return; 
-    }
-
-    const roles = myRoles;
-    if (roles.length === 0) { 
-        alert('⚠️ 你沒有設定科長科目'); 
-        return; 
-    }
-
-    let count = 0;
-    roles.forEach(sub => {
-        for (let i = 0; i < 33; i++) {
-            if (!dayData[i]) dayData[i] = {};
+    
+    for (var i = 0; i < 33; i++) {
+        if (!dayData[i]) dayData[i] = {};
+        myRoles.forEach(function(sub) {
             dayData[i][sub] = status;
-            count++;
-        }
-    });
-
-    // 保存數據
-    try {
-        localStorage.setItem('classworks_hw_data', JSON.stringify(GLOBAL_hwData));
-    } catch(e) { console.warn('Save failed:', e); }
-    
-    // 標記已修改
-    GLOBAL_hasChanges = true;
-    GLOBAL_viewerHasChanges = true;
-    
-    // 重新渲染
-    const container = document.getElementById("viewerContent");
-    if (container && GLOBAL_currentViewerFile) {
-        renderHwViewer(GLOBAL_currentViewerFile, container);
+        });
     }
     
-    alert(`✅ 已將 ${roles.join('、')} 全班設為「${label}」（共 ${count} 筆）`);
-    document.getElementById("viewerSaveClose").style.display = 'inline-flex';
-    document.getElementById("viewerSaveTop").style.display = 'inline-flex';
-    
-    console.log('✅ 批量操作完成！');
+    localStorage.setItem('classworks_hw_data', JSON.stringify(globalHwData));
+    alert('✅ 已更新全班為「' + label + '」');
+    location.reload();
 }
+
 
 // 暴露到 window
 window.applyBatch = applyBatchStatus;
